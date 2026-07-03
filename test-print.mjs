@@ -3,9 +3,9 @@
 //
 // Sends ESC/POS payloads straight to the Pi print bridge (the same endpoint the
 // Apps Script uses via sendToPi), so you can iterate on receipt layout without
-// deploying to Apps Script or waiting on a calendar trigger.
+// deploying to Apps Script or waiting on the daily trigger.
 //
-// For `calendar` / `briefing` it loads the REAL builders from the built bundle
+// For `art` / `art:live` it loads the REAL builders from the built bundle
 // (dist/main.gs) — run `npm run build` first — so the preview matches exactly what
 // gets deployed and printed.
 //
@@ -15,14 +15,12 @@
 // Usage:
 //   node test-print.mjs hello               # minimal "SYSTEM ONLINE" connectivity test
 //   node test-print.mjs text "Hi there"     # print arbitrary text
-//   node test-print.mjs calendar            # render a sample calendar-event receipt
-//   node test-print.mjs briefing            # render a sample AI-briefing receipt
 //   node test-print.mjs ruler               # column/gapless calibration page
 //   node test-print.mjs art                 # render the golden art spec (no API)
 //   node test-print.mjs art:live            # LIVE Fable art (needs ANTHROPIC_KEY)
 //   ... add --dry to any command to print the hex payload instead of sending.
 //
-// Requires Node 18+ (global fetch). Edit the MOCKS below to iterate on content.
+// Requires Node 18+ (global fetch).
 
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -30,43 +28,6 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-
-// --- MOCKS: edit these to iterate on layout/content ---------------------------
-function mockEvent() {
-  const start = new Date();
-  return {
-    getId: () => 'LOCALTEST',
-    getTitle: () => 'Dentist Appointment',
-    getDescription: () => 'Arrive 10 min early[ ] Bring insurance card[ ] Pay copay',
-    getStartTime: () => start,
-    isAllDayEvent: () => false,
-  };
-}
-function mockBriefing() {
-  return {
-    ai: {
-      text: [
-        '**Weather Outlook**',
-        'Clear through the afternoon, cooling into the evening with light winds.',
-        '**News Sync**',
-        'Local roadwork on Main St wraps this week; expect fewer delays downtown.',
-        '**System Status**',
-        'A good day to knock out the hard task first.',
-      ].join('\n'),
-      sources: [{ title: 'Example News', url: 'https://example.com/local/roadwork' }],
-    },
-    weather: {
-      current: 68,
-      feels_like: 66,
-      high: 74,
-      low: 55,
-      wind: 6,
-      rain_chance: 10,
-      code: 'Sunny',
-    },
-  };
-}
-// -----------------------------------------------------------------------------
 
 // Minimal .env loader (no dependency): KEY=VALUE lines, # comments.
 function loadDotEnv() {
@@ -100,7 +61,7 @@ function loadBuilders() {
   }
   const ctx = vm.createContext({ console, Logger: { log() {} } });
   vm.runInContext(readFileSync(bundle, 'utf8'), ctx, { filename: 'dist/main.gs' });
-  return ctx.__receipt; // { generateReceiptPayload, buildDeepReceipt, ... }
+  return ctx.__receipt; // { renderDailyArtReceipt, GOLDEN_ART_SPEC, ... }
 }
 
 // Self-contained ESC/POS for the hello/text/ruler modes (independent of src).
@@ -311,20 +272,6 @@ async function main() {
     case 'text':
       bytes = asText(arg || 'HELLO FROM LOCAL');
       break;
-    case 'calendar': {
-      const { generateReceiptPayload } = loadBuilders();
-      if (!generateReceiptPayload)
-        throw new Error('generateReceiptPayload not found in src/');
-      bytes = generateReceiptPayload(mockEvent());
-      break;
-    }
-    case 'briefing': {
-      const { buildDeepReceipt } = loadBuilders();
-      if (!buildDeepReceipt) throw new Error('buildDeepReceipt not found in src/');
-      const m = mockBriefing();
-      bytes = buildDeepReceipt(m.ai, m.weather);
-      break;
-    }
     case 'ruler':
       bytes = ruler();
       break;
@@ -347,7 +294,7 @@ async function main() {
     }
     default:
       console.error(
-        `Unknown mode "${mode}". Use: hello | text "..." | calendar | briefing | ruler | art | art:live  [--dry]`,
+        `Unknown mode "${mode}". Use: hello | text "..." | ruler | art | art:live  [--dry]`,
       );
       process.exit(1);
   }

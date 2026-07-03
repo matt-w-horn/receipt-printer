@@ -1,13 +1,13 @@
 // Shared ESC/POS command table and low-level helpers.
 //
 // The printer is an Epson TM-T20III (80mm, CP437). Every entry below is a raw
-// byte sequence; see docs/epson-tm-t20iii-technical-reference-guide.pdf. Keep the
-// byte values verbatim — they are not arbitrary.
+// byte sequence; the full protocol as this project uses it is documented in
+// docs/escpos-protocol.md. Keep the byte values verbatim — they are not
+// arbitrary.
 
 // Printer geometry. This TM-T20III runs in standard 48-column mode — confirmed
 // with `node test-print.mjs ruler` (a 48-char Font A line and a 64-char Font B
-// line each fit without wrapping). The legacy calendar/briefing layouts wrap at
-// 42 and simply leave a margin. Re-verify with the ruler if reconfigured.
+// line each fit without wrapping). Re-verify with the ruler if reconfigured.
 export const COLS_A = 48;
 export const COLS_B = 64;
 
@@ -63,32 +63,7 @@ export const CMD = {
   // Line Spacing
   SET_LINE_SPACING: (n: number): number[] => [0x1b, 0x33, n],
   RESET_LINE_SPACING: [0x1b, 0x32],
-
-  GET_BORDER_TOP: function (): number[] {
-    const line = [0xc9];
-    for (let i = 0; i < 40; i++) line.push(0xcd);
-    line.push(0xbb);
-    line.push(0x0a);
-    return line;
-  },
-
-  GET_BORDER_BOTTOM: function (): number[] {
-    const line = [0xc8];
-    for (let i = 0; i < 40; i++) line.push(0xcd);
-    line.push(0xbc);
-    line.push(0x0a);
-    return line;
-  },
 };
-
-// Map a string to its raw byte sequence (one byte per UTF-16 code unit). The
-// caller is responsible for staying within the printer's CP437 code page.
-// Frozen for the legacy calendar/briefing payloads — new code uses encodeCP437.
-export function stringToBytes(str: string): number[] {
-  const bytes: number[] = [];
-  for (let i = 0; i < str.length; i++) bytes.push(str.charCodeAt(i));
-  return bytes;
-}
 
 // Unicode → CP437 byte map for everything beyond printable ASCII that the
 // TM-T20III can render. CP437's 0x01–0x1F "glyphs" (☺♥ etc.) are unreachable —

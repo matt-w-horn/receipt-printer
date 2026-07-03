@@ -10,8 +10,8 @@
 // which keeps the vm bundle load in the harness side-effect-free.
 
 import { CMD, COLS_A, COLS_B, ROW_DOTS_A, ROW_DOTS_B, encodeCP437 } from './escpos';
-import { sendToPi, sendAlertEmail, callWithRetry } from './calendar';
-import { getDeepWeather, WeatherData } from './briefing';
+import { sendToPi, sendAlertEmail, callWithRetry } from './transport';
+import { getDeepWeather, WeatherData } from './weather';
 
 // --- CONFIGURATION ---
 const DRY_RUN = false; // Set to TRUE to log the spec instead of printing
@@ -364,7 +364,7 @@ export function renderArtSpec(ops: ArtOp[]): number[] {
   return p;
 }
 
-// Simple wrapper for the placard (no long-word breaking, like the briefing's).
+// Simple word wrapper for the verse (no long-word breaking).
 function wrapText(text: string, maxLength: number): string[] {
   const words = text.split(' ');
   const lines: string[] = [];
@@ -381,7 +381,7 @@ function wrapText(text: string, maxLength: number): string[] {
   return lines;
 }
 
-// Full receipt: date stamp, artwork, gallery placard (title/caption/signature).
+// Full receipt: date stamp, artwork, verse.
 export function renderDailyArtReceipt(spec: ArtSpec, now: Date): number[] {
   let p: number[] = [];
   const dateStr = now
