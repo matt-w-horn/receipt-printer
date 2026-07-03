@@ -6,8 +6,14 @@ the weather outside, the season, whatever the news feels like. One physical
 copy, 80mm wide, no screen involved. The archive is a growing stack of
 receipts.
 
-A receipt like this (the repo's built-in test plate — every real day is
-one-of-a-kind):
+<p align="center">
+  <img src="example/example.jpeg" width="420" alt="A thermal receipt pinned to a corkboard. Under a small date stamp — FRI, JUL 3, 2026 — a lone firework rocket climbs a dotted trail through scattered stars above a solid-black CP437 skyline. Beneath the art, a short verse: July third, the eve — one scout rocket up early, testing the dark. Tomorrow, the whole sky.">
+</p>
+
+That one printed on the morning of July 3, 2026 — the eve of the Fourth, so
+Claude sent up a single scout rocket to test the dark. For a reproducible
+example, here's the repo's built-in test plate in text form (every real day
+is one-of-a-kind):
 
 ```
                 · FRI, JUL 3, 2026 ·
@@ -238,6 +244,8 @@ test-print.mjs      local print harness (talks to the Pi directly)
 docs/
   escpos-protocol.md         the full byte-level protocol spec
   pi-print-server-runbook.md the Pi side: setup, ops, troubleshooting
+example/
+  example.jpeg               a real morning's print (July 3, 2026)
 ```
 
 `npm run build` bundles `src/` into `dist/main.gs`; `clasp` uploads `dist/`
