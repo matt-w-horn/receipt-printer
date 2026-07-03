@@ -7,42 +7,13 @@ copy, 80mm wide, no screen involved. The archive is a growing stack of
 receipts.
 
 <p align="center">
-  <img src="example/example.jpeg" width="420" alt="A thermal receipt pinned to a corkboard. Under a small date stamp — FRI, JUL 3, 2026 — a lone firework rocket climbs a dotted trail through scattered stars above a solid-black CP437 skyline. Beneath the art, a short verse: July third, the eve — one scout rocket up early, testing the dark. Tomorrow, the whole sky.">
+  <img src="example/example_2.jpeg" width="800" alt="Two thermal receipts pinned side by side on a corkboard. Left, dated Friday July 3 2026: a lone firework rocket climbs a dotted trail through a sparse starfield above a solid-black skyline; the verse reads 'July third, the eve; one scout rocket up early, testing the dark. Tomorrow, the whole sky.' Right, dated Saturday July 4 2026: the same skyline under a sky full of firework bursts; the verse reads 'The scout kept its word. Every dark inch answers at once: blooms, rings, embers walking down to the same small town, upturned.'">
 </p>
 
-That one printed on the morning of July 3, 2026 — the eve of the Fourth, so
-Claude sent up a single scout rocket to test the dark. For a reproducible
-example, here's the repo's built-in test plate in text form (every real day
-is one-of-a-kind):
-
-```
-                · FRI, JUL 3, 2026 ·
-
-                  ╔════════════╗
-                  ║ TEST PLATE ║
-                  ╚════════════╝
-
-░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
-░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░
-░░░░░░░░░░░░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░░░░░░░░░░░░
-▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▓▓▓██████████▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
-▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
-░░░░░░░░░░░░░░░░░░░░░░▄█▄░░░░░░░░░░░░░░░░░░░░░░░
-░░░░░░░░░░░░░░░░░░░▄██▄▄███▄░░░░░░░░░░░░░░░░░░░░
-░░░░░░░░░░░░░░░░▄█████████████▄░░░░░░░░░░░░░░░░░
-████████████████████████████████████████████████
-≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈ ≈
-
-                     DAWN
-
-        The mountains hold their breath;
-        the sun tries every shade of gray
-          before committing to gold.
-```
-
-(On paper, `DAWN` prints double-size white-on-black, the wave rows print in the
-printer's denser second font, and the gradient rows tile with zero gap between
-lines. Print this exact plate with `node test-print.mjs art` — no API call.)
+Two mornings, a day apart. On July 3 the printer sent up one scout rocket to
+test the dark, and the verse promised "tomorrow, the whole sky." On the Fourth
+it kept the word: the same skyline under a sky full of bursts. Most days stand
+on their own. Once in a while a piece answers the one before it.
 
 The whole thing is a Google Apps Script. There is no server to maintain beyond
 a Raspberry Pi Zero W that pipes bytes into the printer's USB port.
@@ -148,11 +119,24 @@ unlikely event of a refusal. Details in `CLAUDE.md`.
   that writes request bodies straight to `/dev/usb/lp0`, exposed through an
   ngrok static domain with basic auth, kept alive by systemd.
 
+<p align="center">
+  <img src="example/example_1.jpeg" width="360" alt="The Epson TM-T20III thermal printer with a receipt curling from its slot. The print shows a large solid-black Liberty Bell with a jagged crack down the middle, the line '1776 - 2026', and the verse 'Two hundred fifty summers rung. The crack is where the sound gets out, imperfect, loud, and still begun.'">
+</p>
+
 The full byte-level protocol (every command, the CP437 mapping, the geometry
 and calibration results) is specced in
 [`docs/escpos-protocol.md`](docs/escpos-protocol.md). The Pi's setup,
 maintenance, troubleshooting, and disaster recovery live in
 [`docs/pi-print-server-runbook.md`](docs/pi-print-server-runbook.md).
+
+## Contributing
+
+Clone the repo, `npm install`, and start [Claude Code](https://claude.com/claude-code)
+in the root — it picks up [`CLAUDE.md`](CLAUDE.md) automatically, which carries
+the architecture, the deploy ritual, and the byte-level gotchas. You can iterate
+on the renderer with no hardware at all: `node test-print.mjs art --dry` shows
+the exact ESC/POS bytes a change produces. The longer version, including a good
+first prompt to hand Claude, is in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Run your own
 
@@ -245,7 +229,8 @@ docs/
   escpos-protocol.md         the full byte-level protocol spec
   pi-print-server-runbook.md the Pi side: setup, ops, troubleshooting
 example/
-  example.jpeg               a real morning's print (July 3, 2026)
+  example_1.jpeg             the Liberty Bell piece, fresh off the printer
+  example_2.jpeg             the Jul 3 -> Jul 4 sequence, pinned side by side
 ```
 
 `npm run build` bundles `src/` into `dist/main.gs`; `clasp` uploads `dist/`

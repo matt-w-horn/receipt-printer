@@ -84,8 +84,11 @@ All real config/secrets live in **Script Properties**, never in the repo:
 Google API key used for the Google Weather API), `LAT`, `LON` (weather is
 garnish — the art degrades gracefully without it). Never hardcode these or log
 them. `LAST_ART_DATE`, `ART_HISTORY` (rolling list of recent pieces fed back
-into the art prompt for day-to-day variety), and `LAST_ALERT_TIME` are
-script-managed state keys. (Leftover properties from the deleted calendar/
+into the art prompt for day-to-day variety; entries carry a `c` field when a
+piece continued an earlier one — the model judges when continuity is warranted
+via the prompt's continuity rules and reports it in the spec's `continues`
+field, and the history marker is what keeps it rare), and `LAST_ALERT_TIME`
+are script-managed state keys. (Leftover properties from the deleted calendar/
 briefing jobs — `CALENDAR_ID`, `NEWS_KEY`, `PRINT_MEMORY` — are unused and can
 be removed in the editor.)
 

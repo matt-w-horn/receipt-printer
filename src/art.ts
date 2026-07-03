@@ -50,6 +50,7 @@ export interface ArtSpec {
   caption: string;
   verse: string;
   style: string; // archive note, not printed — feeds the day-to-day variety loop
+  continues: string; // '' most days; else the yyyy-MM-dd of the piece this one builds on
   ops: ArtOp[];
 }
 
@@ -59,9 +60,17 @@ export interface ArtHistoryEntry {
   d: string; // yyyy-MM-dd
   title: string;
   style: string;
+  c?: string; // set when this piece continued an earlier one (its yyyy-MM-dd)
 }
 
 const HISTORY_LIMIT = 14;
+
+// Continuity is model-judged, not code-rolled: the prompt lets the model
+// continue a recent piece when the day genuinely warrants it (a holiday
+// following its eve, a multi-day event, an anniversary). The spec's
+// `continues` field logs the link into ART_HISTORY, and the history shown in
+// future contexts carries the marker — that in-band memory is what keeps
+// continuations rare instead of habitual.
 
 // JSON schema for output_config.format — structured-output rules apply:
 // additionalProperties:false on every object, no numeric min/max (the renderer
@@ -69,7 +78,7 @@ const HISTORY_LIMIT = 14;
 export const ART_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['title', 'caption', 'verse', 'style', 'ops'],
+  required: ['title', 'caption', 'verse', 'style', 'continues', 'ops'],
   properties: {
     title: {
       type: 'string',
@@ -96,6 +105,13 @@ export const ART_SCHEMA = {
         'Archive note, NOT printed: one line recording subject + visual ' +
         'technique (e.g. "firework burst over skyline; dot-scatter + gapless ' +
         'silhouette"). Used to avoid repeating yourself on future days.',
+    },
+    continues: {
+      type: 'string',
+      description:
+        'Empty string almost every day. If — rarely — this piece deliberately ' +
+        'continues or answers one of your recent pieces, the yyyy-MM-dd of ' +
+        'that piece. Logged so future days can see when continuity was last used.',
     },
     ops: {
       type: 'array',
@@ -181,12 +197,15 @@ CRAFT
 
 EACH DAY
 - You receive the date, season, local weather, and a list of your recent pieces, and may run a few brief web searches to feel the day (news mood, holidays, anniversaries, events). Searching is optional — skip it when the weather or season already gives you the piece.
-- Choose ONE evocative theme for today and commit to it. Your piece must differ SHARPLY from every recent piece listed in the context — different subject, different composition, different technique. Rotate across the whole space: landscape, geometric abstraction, pattern study, giant-type poster, tiny vignette, weather glyph, constellation map, data-texture, emblem, diagram, still life, architectural study.
+- Choose ONE evocative theme for today and commit to it. Your strong default is divergence: your piece must differ SHARPLY from every recent piece listed in the context — different subject, different composition, different technique. Rotate across the whole space: landscape, geometric abstraction, pattern study, giant-type poster, tiny vignette, weather glyph, constellation map, data-texture, emblem, diagram, still life, architectural study.
+- THE RARE EXCEPTION — continuity. Once in a while, the day itself hands you a thread worth picking up, and you may build deliberately on ONE recent piece instead of diverging. Days that genuinely warrant it: a holiday arriving after you drew its eve (Christmas Eve → Christmas; July 3 → the Fourth); a major event still unfolding across days (an election decided overnight, a historic mission mid-flight, the first days of something the whole world is watching); a resonant anniversary of a piece or its subject — decades especially. When you take it: continue the story, pay off a promise the earlier verse made, or answer it. Reuse enough of the original's visual language that the link is unmistakable, but escalate or transform — never merely repeat, and never label the piece as a continuation; let the viewer discover it. Set "continues" to that piece's date so it's logged.
+- Your history shows when a piece continued another. If you see a recent "(continues …)" marker, the bar for another one is much higher — continuity is an earned surprise, and surprises that happen often aren't. Ordinary news days, minor observances, and loose thematic echoes do NOT qualify. When in doubt, diverge.
 - Alongside the ops, return:
   - verse: a short poem (2-6 lines, ≤${COLS_A} chars each) printed under the art — the ONLY words the viewer gets. Vary the form daily: haiku, couplet, free fragment, epigram. It should carry the feeling and still let the viewer grasp what the piece refers to; poetic, not cryptic.
   - title: archive name, UPPERCASE, ≤20 chars (not printed).
   - caption: one plain unprinted line naming the reference outright, for the log.
-  - style: an unprinted archive note — subject + technique in one line — so future-you avoids repeating it.`;
+  - style: an unprinted archive note — subject + technique in one line — so future-you avoids repeating it.
+  - continues: '' almost always; on a continuation day, the date of the piece you built on.`;
 
 // Build the user-turn context string. Pure — safe to call from the Node harness.
 export function buildArtContext(
@@ -233,10 +252,15 @@ export function buildArtContext(
   if (recent.length > 0) {
     lines.push('');
     lines.push(
-      'Your recent pieces — today must differ sharply from ALL of these in ' +
-        'subject, composition, and technique:',
+      'Your recent pieces — default: differ sharply from ALL of these in ' +
+        'subject, composition, and technique (a rare, genuinely warranted ' +
+        'continuation of one is the exception; see your continuity rules):',
     );
-    recent.forEach((r) => lines.push(`- ${r.d}: "${r.title}" — ${r.style}`));
+    recent.forEach((r) =>
+      lines.push(
+        `- ${r.d}: "${r.title}" — ${r.style}${r.c ? ` (continues ${r.c})` : ''}`,
+      ),
+    );
   }
   lines.push('');
   lines.push("Design today's artwork now and return the art spec JSON.");
@@ -292,6 +316,13 @@ export function parseArtResponse(res: {
   ) {
     throw new Error('Art spec JSON has unexpected shape');
   }
+  // `continues` is garnish — sanitize to a bare yyyy-MM-dd or drop it. A
+  // malformed value must never fail the day's print.
+  spec.continues =
+    typeof spec.continues === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(spec.continues.trim())
+      ? spec.continues.trim()
+      : '';
   return spec;
 }
 
@@ -457,6 +488,7 @@ export const GOLDEN_ART_SPEC: ArtSpec = (() => {
     verse:
       'The mountains hold their breath;\nthe sun tries every shade of gray\nbefore committing to gold.',
     style: 'calibration plate; gradient + silhouette + type specimen',
+    continues: '',
     ops: [
       { text: '╔════════════╗\n║ TEST PLATE ║\n╚════════════╝', feedAfter: 1 },
       { text: sky, gapless: true },
@@ -592,7 +624,14 @@ export function printDailyArt(): void {
       throw new Error('Print failed after retries');
     }
     props.setProperty('LAST_ART_DATE', today);
-    history.push({ d: today, title: spec.title, style: spec.style || '' });
+    if (spec.continues) Logger.log('🔗 Continues ' + spec.continues);
+    const entry: ArtHistoryEntry = {
+      d: today,
+      title: spec.title,
+      style: spec.style || '',
+    };
+    if (spec.continues) entry.c = spec.continues;
+    history.push(entry);
     while (history.length > HISTORY_LIMIT) history.shift();
     props.setProperty('ART_HISTORY', JSON.stringify(history));
     Logger.log('✅ Daily art printed.');
