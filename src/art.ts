@@ -73,21 +73,22 @@ export const ART_SCHEMA = {
   properties: {
     title: {
       type: 'string',
-      description: 'Title of the piece, UPPERCASE, max 20 characters.',
+      description: 'Archive name for the piece, NOT printed. UPPERCASE, max 20 chars.',
     },
     caption: {
       type: 'string',
       description:
-        'One plain line naming the reference — the holiday, headline, weather ' +
-        'fact, or date the piece is about. The viewer should never have to ' +
-        `guess. Max ${COLS_A} characters.`,
+        'Archive/log note, NOT printed: one plain line naming the reference — ' +
+        'the holiday, headline, weather fact, or date the piece is about.',
     },
     verse: {
       type: 'string',
       description:
-        'A short poem printed beneath the artwork: 2-6 lines separated by \\n, ' +
-        `each max ${COLS_A} characters. Vary the form day to day — haiku, ` +
-        'couplet, free fragment, epigram. It should illuminate the piece.',
+        'The only words printed with the piece: a short poem beneath the ' +
+        `artwork, 2-6 lines separated by \\n, each max ${COLS_A} characters. ` +
+        'Vary the form day to day — haiku, couplet, free fragment, epigram. ' +
+        'It carries the feeling AND gives the viewer enough to grasp what the ' +
+        'piece refers to.',
     },
     style: {
       type: 'string',
@@ -176,15 +177,15 @@ CRAFT
 - One strong idea, committed. Silhouette + texture + contrast beats detail.
 - 25-60 rows of art is the sweet spot (hard cap 150). The scroll is tall and narrow — compose vertically.
 - Gradients: ramp ░→▒→▓→█ across rows. Texture: scatter · ∙ ░ or alternate characters. Edges: ▀▄▌▐.
-- The printer adds the date stamp above and your title + caption below the piece automatically. The ops are ONLY the artwork — no title block, no signature, no border unless it is part of the art.
+- The printed receipt is spare: a small date stamp, your artwork, your verse. Nothing else. The ops are ONLY the artwork — no title block, no signature, no border unless it is part of the art.
 
 EACH DAY
 - You receive the date, season, local weather, and a list of your recent pieces, and may run a few brief web searches to feel the day (news mood, holidays, anniversaries, events). Searching is optional — skip it when the weather or season already gives you the piece.
 - Choose ONE evocative theme for today and commit to it. Your piece must differ SHARPLY from every recent piece listed in the context — different subject, different composition, different technique. Rotate across the whole space: landscape, geometric abstraction, pattern study, giant-type poster, tiny vignette, weather glyph, constellation map, data-texture, emblem, diagram, still life, architectural study.
 - Alongside the ops, return:
-  - title: punchy, UPPERCASE, ≤20 chars.
-  - verse: a short poem (2-6 lines, ≤${COLS_A} chars each) printed under the art. Vary the form daily — haiku, couplet, free fragment, epigram. It carries the feeling.
-  - caption: one plain line that names the reference outright (the holiday, the headline, the weather fact). The verse can be oblique; the caption may not — a viewer should read it and immediately know what the piece is about.
+  - verse: a short poem (2-6 lines, ≤${COLS_A} chars each) printed under the art — the ONLY words the viewer gets. Vary the form daily: haiku, couplet, free fragment, epigram. It should carry the feeling and still let the viewer grasp what the piece refers to; poetic, not cryptic.
+  - title: archive name, UPPERCASE, ≤20 chars (not printed).
+  - caption: one plain unprinted line naming the reference outright, for the log.
   - style: an unprinted archive note — subject + technique in one line — so future-you avoids repeating it.`;
 
 // Build the user-turn context string. Pure — safe to call from the Node harness.
@@ -402,7 +403,9 @@ export function renderDailyArtReceipt(spec: ArtSpec, now: Date): number[] {
   p = p.concat(renderArtSpec(spec.ops));
   p = p.concat(CMD.FEED_LINES(1));
 
-  // The verse, centered and quiet, between the art and the placard.
+  // The verse, centered and quiet — the only words printed with the piece.
+  // (Title and caption exist in the spec for the log and the ART_HISTORY
+  // archive; they are deliberately not printed.)
   const verse = String(spec.verse || '').trim();
   if (verse.length > 0) {
     verse.split('\n').forEach((line) => {
@@ -410,28 +413,7 @@ export function renderDailyArtReceipt(spec: ArtSpec, now: Date): number[] {
         p = p.concat(encodeCP437(l), [0x0a]);
       });
     });
-    p = p.concat(CMD.FEED_LINES(1));
   }
-
-  // Gallery placard.
-  p = p.concat(CMD.ALIGN_CENTER, encodeCP437('─'.repeat(COLS_A)), [0x0a]);
-  p = p.concat(CMD.SIZE(2, 2), CMD.BOLD_ON);
-  const title = String(spec.title || 'UNTITLED').toUpperCase();
-  wrapText(title, Math.floor(COLS_A / 2)).forEach((line) => {
-    p = p.concat(encodeCP437(line), [0x0a]);
-  });
-  p = p.concat(CMD.SIZE(1, 1), CMD.BOLD_OFF);
-
-  const caption = String(spec.caption || '').trim();
-  if (caption.length > 0) {
-    caption.split('\n').forEach((para) => {
-      wrapText(para.trim(), COLS_A).forEach((line) => {
-        p = p.concat(encodeCP437(line), [0x0a]);
-      });
-    });
-  }
-
-  p = p.concat(CMD.FONT_B, encodeCP437('· claude fable 5 ·'), [0x0a], CMD.FONT_A);
 
   p = p.concat(CMD.FEED_LINES(3), CMD.CUT_PAPER);
   return p;
@@ -597,7 +579,8 @@ export function printDailyArt(): void {
     Logger.log('🖼️ Context:\n' + context);
 
     const spec = generateDailyArt(apiKey, context);
-    Logger.log(`🎨 "${spec.title}" — ${spec.ops.length} ops — ${spec.style || ''}`);
+    Logger.log(`🎨 "${spec.title}" — ${spec.caption || ''}`);
+    Logger.log(`🗂️ ${spec.ops.length} ops — ${spec.style || ''}`);
 
     const payload = renderDailyArtReceipt(spec, new Date());
     if (DRY_RUN) {

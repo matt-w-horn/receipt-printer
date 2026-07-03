@@ -13,10 +13,10 @@ The active job — one time-based trigger per day:
   the day: local weather, season, date, and the zeitgeist (the model can run a
   few web searches). The returned art spec (JSON) is rendered to ESC/POS — block
   shading ░▒▓█, half-blocks, box drawing, glyph scaling up to 8x, invert,
-  gapless line spacing — and printed with a date stamp, a short verse, and a
-  gallery placard (title, a caption naming the day's reference, signature).
-  A rolling archive of recent pieces is fed back into each prompt so the work
-  varies day to day.
+  gapless line spacing — and printed spare: a small date stamp, the artwork,
+  and a short verse. Nothing else. A rolling archive of recent pieces is fed
+  back into each prompt so the work varies day to day; the unprinted title,
+  reference caption, and style note land in the execution log and the archive.
 
 Two earlier jobs remain in the repo, **dormant** (code kept, triggers removed):
 
