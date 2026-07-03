@@ -86,6 +86,25 @@ alerts go). Two state keys are managed by the script itself and need no setup:
 `PRINT_MEMORY` (de-dupes already-printed events) and `LAST_ALERT_TIME` (rate-limits
 alert emails).
 
+## Local iteration
+
+`test-print.mjs` sends ESC/POS straight to the Pi bridge (the same endpoint Apps
+Script hits), so you can iterate on receipt layout without deploying or waiting
+on a trigger. For `calendar`/`briefing` it loads the real builders from `src/`,
+so the preview matches production.
+
+```bash
+cp .env.example .env            # then fill in NGROK_USER / NGROK_PASS
+node test-print.mjs hello       # minimal "SYSTEM ONLINE" connectivity test
+node test-print.mjs text "Hi"   # arbitrary text
+node test-print.mjs calendar    # sample calendar-event receipt (edit MOCKS in the file)
+node test-print.mjs briefing    # sample AI-briefing receipt
+node test-print.mjs calendar --dry   # print the hex payload instead of sending
+```
+
+`.env` is gitignored; credentials never live in the repo. This script is not part
+of the Apps Script bundle (clasp only pushes `src/`).
+
 ## Triggers
 
 Set up in the Apps Script editor (Triggers → Add Trigger), time-driven:

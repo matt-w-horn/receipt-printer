@@ -5,6 +5,9 @@ node_modules/
 # it holds only the scriptId + push config, no secrets — see CLAUDE.md.)
 .clasprc.json
 
+# Local test credentials (copy .env.example -> .env)
+.env
+
 # Logs / OS cruft
 *.log
 .DS_Store
