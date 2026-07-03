@@ -1,14 +1,15 @@
 # Direct-to-Metal Print Server Runbook
 
 **System:** Raspberry Pi Zero W + Epson TM-T20III
-**Role:** Secure, headless print server for the `receipt-printer` Apps Script jobs
-(calendar events + morning briefing).
+**Role:** Secure, headless print server for the `receipt-printer` Apps Script job
+(daily generative art).
 **Owner:** Matt Horn
 
 This is the receiving end of the pipeline. The Apps Script side (in `src/`) builds
 ESC/POS byte payloads and POSTs them to this server; this box authenticates the
 request and writes the raw bytes straight to the printer's character device. See
-the top-level [README](../README.md) for the Apps Script side.
+the top-level [README](../README.md) for the Apps Script side and
+[`escpos-protocol.md`](escpos-protocol.md) for the byte protocol.
 
 > **Secrets are redacted here on purpose.** Placeholders like `<NGROK_USER>` /
 > `<NGROK_PASS>` / `<NGROK_DOMAIN>` stand in for real values, which live in the
@@ -31,7 +32,7 @@ the top-level [README](../README.md) for the Apps Script side.
 - **Server:** Python 3 (`http.server`) writing raw bytes to USB.
 - **Tunnel:** ngrok (static domain + basic auth).
 - **Process management:** systemd (`printer.service`).
-- **Client:** Google Apps Script (`src/Code.js`, trigger-based).
+- **Client:** Google Apps Script (`dist/main.gs`, built from `src/`, trigger-based).
 
 ```
 Apps Script trigger → sendToPi() → ngrok (static domain, basic auth)
@@ -46,12 +47,11 @@ Real values live in the password manager; the Apps Script side reads them from
 Script Properties. This table is a map of _where each secret lives_, not the
 secrets themselves.
 
-| Service             | Location                      | Key / field                          |
-| ------------------- | ----------------------------- | ------------------------------------ |
-| **SSH access**      | Pi local network              | user `pi` / password                 |
-| **ngrok auth**      | `start_print_system.sh` on Pi | `<NGROK_USER>` / `<NGROK_PASS>`      |
-| **Google Script**   | Project Settings → Properties | `NGROK_USER`, `NGROK_PASS`, `PI_URL` |
-| **Google Calendar** | `src/Code.js`                 | `CALENDAR_ID`                        |
+| Service           | Location                      | Key / field                          |
+| ----------------- | ----------------------------- | ------------------------------------ |
+| **SSH access**    | Pi local network              | user `pi` / password                 |
+| **ngrok auth**    | `start_print_system.sh` on Pi | `<NGROK_USER>` / `<NGROK_PASS>`      |
+| **Google Script** | Project Settings → Properties | `NGROK_USER`, `NGROK_PASS`, `PI_URL` |
 
 The ngrok basic-auth pair on the Pi (`start_print_system.sh`) must match
 `NGROK_USER` / `NGROK_PASS` in Script Properties exactly. The static ngrok
@@ -158,12 +158,10 @@ ls -l /dev/usb/lp0
 
 - **Meaning:** a special character (emoji, smart quote) was sent to a byte
   encoder that couldn't represent it.
-- **Fix:** guard the byte encoder so out-of-range code points are dropped or
-  substituted (an `if (code > 255)` check in `stringToBytes`).
-
-  > **Repo note:** the current `stringToBytes` in `src/Code.js` and
-  > `src/WeatherReport.gs.js` does **not** have this guard. If this error recurs,
-  > that's the fix to add — see the discrepancy flagged in the project notes.
+- **Status:** guarded in the current code — all printed text goes through
+  `encodeCP437` (`src/escpos.ts`), which normalizes smart punctuation, drops
+  control characters, and substitutes `?` for anything CP437 can't print. If
+  this error recurs, some new code path is bypassing `encodeCP437`.
 
 ---
 
