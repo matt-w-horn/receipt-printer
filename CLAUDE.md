@@ -147,3 +147,29 @@ payload without printing.
   pixel-grid-first when vector-style art was wanted, and had to be redone.
 - Keep it green: `npm run build` (tsc + bundle) and `npm run format` before
   committing. CI runs `prettier --check`.
+
+## Positioning & copy (canonical — reuse, don't reinvent)
+
+When writing or editing anything user-facing (README, issues, posts,
+descriptions), use these approved lines verbatim or stay in their register.
+The contrast with feeds is drawn through concrete objects (refresh, scroll,
+cutter, corkboard), never editorializing about social media.
+
+- **Tagline:** One original print, every morning.
+- **One-liner (HN-style):** Morningprint – my receipt printer prints one
+  original artwork each morning
+- **Two sentences:** A thermal receipt printer in the kitchen wakes before you
+  do and prints a one-of-a-kind piece of character art, themed to the date,
+  the weather, and the mood of the news, with a short verse underneath. The
+  day's whole feed is a strip of paper you pin to a corkboard.
+- **Paragraph:** Every morning a thermal receipt printer in my kitchen prints
+  something that has never existed before: a small piece of character art,
+  designed seconds earlier by Claude and themed to the day — the weather
+  outside, the season, a holiday, an eclipse, an election. A short verse sits
+  beneath it. It reads the same restless inputs the feeds do, then hands you
+  one finished, physical thing and stops. There is nothing to refresh; the
+  archive is a stack of receipts on a corkboard, and once in a while a piece
+  answers the one printed the day before. Under the hood: a Google Apps
+  Script, structured output from Claude, a hand-rolled ESC/POS renderer
+  drawing with the 1981 CP437 character set, and a Raspberry Pi Zero W feeding
+  an Epson receipt printer.
