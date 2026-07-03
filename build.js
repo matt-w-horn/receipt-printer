@@ -12,7 +12,13 @@ import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 
 // Names that must survive bundling as bare globals: the trigger handlers and the
 // editor-run test. Keep in sync with the re-exports in src/main.ts.
-const ENTRY_POINTS = ['checkAndPrintRobust', 'printAIMorningBriefing', 'testPrinter'];
+const ENTRY_POINTS = [
+  'checkAndPrintRobust',
+  'printAIMorningBriefing',
+  'testPrinter',
+  'printDailyArt',
+  'testDailyArt',
+];
 
 const GLOBAL = '__receipt';
 

@@ -6,7 +6,17 @@ byte payloads and POSTs them to a printer bridge on a Raspberry Pi (reached over
 an ngrok tunnel with HTTP basic auth), so anything Apps Script can reach — Google
 services, any REST API, an LLM — can become a printed receipt.
 
-Two jobs ship today, each on its own time-based trigger; more are planned:
+The active job — one time-based trigger per day:
+
+- **Daily art → receipt** (`src/art.ts`) — `printDailyArt()` asks Claude Fable 5
+  (Anthropic API) to design an original piece of CP437 character art themed to
+  the day: local weather, season, date, and the zeitgeist (the model can run a
+  few web searches). The returned art spec (JSON) is rendered to ESC/POS — block
+  shading ░▒▓█, half-blocks, box drawing, glyph scaling up to 8x, invert,
+  gapless line spacing — and printed with a date stamp and a gallery placard
+  (title, caption, signature).
+
+Two earlier jobs remain in the repo, **dormant** (code kept, triggers removed):
 
 - **Calendar → receipt** (`src/calendar.ts`) — `checkAndPrintRobust()` scans a
   Google Calendar for events in a rolling window and prints each new one as a
@@ -14,7 +24,8 @@ Two jobs ship today, each on its own time-based trigger; more are planned:
 - **AI morning briefing → receipt** (`src/briefing.ts`) —
   `printAIMorningBriefing()` pulls current weather + a 24h forecast, asks Gemini
   (with Google Search grounding) for a short weather/news/status briefing, and
-  prints it with a weather header and source links.
+  prints it with a weather header and source links. The art job still reuses its
+  weather fetcher.
 
 ```
 Apps Script trigger
@@ -71,21 +82,22 @@ then `npm run push`. The project is already bound via the committed
 No secrets live in the repo. Runtime config is read from **Script Properties**
 (Apps Script editor → Project Settings → Script Properties):
 
-| Property          | Used by  | What it is                                          |
-| ----------------- | -------- | --------------------------------------------------- |
-| `PI_URL`          | both     | ngrok HTTPS URL of the Pi print bridge              |
-| `NGROK_USER`      | both     | basic-auth username for the tunnel                  |
-| `NGROK_PASS`      | both     | basic-auth password for the tunnel                  |
-| `CALENDAR_ID`     | calendar | which Google Calendar to print                      |
-| `EMAIL_ALERTS_TO` | calendar | where failure alerts are emailed                    |
-| `GEMINI_KEY`      | briefing | Google API key — Gemini **and** the Weather API     |
-| `NEWS_KEY`        | briefing | NewsAPI key (currently optional — news path is off) |
-| `LAT`             | briefing | latitude for weather                                |
-| `LON`             | briefing | longitude for weather                               |
+| Property          | Used by       | What it is                                    |
+| ----------------- | ------------- | --------------------------------------------- |
+| `PI_URL`          | all           | ngrok HTTPS URL of the Pi print bridge        |
+| `NGROK_USER`      | all           | basic-auth username for the tunnel            |
+| `NGROK_PASS`      | all           | basic-auth password for the tunnel            |
+| `ANTHROPIC_KEY`   | art           | Anthropic API key (`claude-fable-5`)          |
+| `EMAIL_ALERTS_TO` | art, calendar | where failure alerts are emailed              |
+| `GEMINI_KEY`      | art, briefing | Google API key — the Weather API (and Gemini) |
+| `LAT`             | art, briefing | latitude for weather (optional for art)       |
+| `LON`             | art, briefing | longitude for weather (optional for art)      |
+| `CALENDAR_ID`     | calendar      | which Google Calendar to print (dormant)      |
+| `NEWS_KEY`        | briefing      | NewsAPI key (dormant)                         |
 
-Two state keys are managed by the script itself and need no setup:
-`PRINT_MEMORY` (de-dupes already-printed events) and `LAST_ALERT_TIME`
-(rate-limits alert emails).
+State keys managed by the script itself (no setup): `LAST_ART_DATE` (one art
+print per day; retries after failures), `PRINT_MEMORY` (de-dupes printed
+events), and `LAST_ALERT_TIME` (rate-limits alert emails).
 
 ## Local iteration
 
@@ -96,12 +108,15 @@ on a trigger. `calendar`/`briefing` load the real builders from the built
 
 ```bash
 cp .env.example .env            # then fill in NGROK_USER / NGROK_PASS
-npm run build                   # needed for calendar/briefing (they load dist/main.gs)
+npm run build                   # needed for modes that load dist/main.gs
 node test-print.mjs hello       # minimal "SYSTEM ONLINE" connectivity test
 node test-print.mjs text "Hi"   # arbitrary text
+node test-print.mjs ruler       # column + gapless-spacing calibration page
+node test-print.mjs art         # golden art spec through the real renderer (no API)
+node test-print.mjs art:live    # LIVE Fable art end-to-end (ANTHROPIC_KEY in .env)
 node test-print.mjs calendar    # sample calendar-event receipt (edit MOCKS in the file)
 node test-print.mjs briefing    # sample AI-briefing receipt
-node test-print.mjs calendar --dry   # print the hex payload instead of sending
+node test-print.mjs art --dry   # print the hex payload instead of sending
 ```
 
 `.env` is gitignored; credentials never live in the repo. This script is local
@@ -111,21 +126,25 @@ only — it isn't bundled into `dist/` or pushed to Apps Script.
 
 Set up in the Apps Script editor (Triggers → Add Trigger), time-driven:
 
-- `checkAndPrintRobust` — e.g. hourly / a few times a day; it de-dupes so
-  re-runs are safe.
-- `printAIMorningBriefing` — once each morning.
+- `printDailyArt` — daily (a morning hour works well). An hourly trigger is
+  also safe: `LAST_ART_DATE` limits it to one print per day, and because the
+  guard is only set on success, extra runs double as retries after a failure.
+- The old `checkAndPrintRobust` / `printAIMorningBriefing` triggers should be
+  **deleted** — those jobs are dormant (code kept, unscheduled).
 
-`testPrinter()` prints two sample receipts to verify the hardware path. Set
-`DRY_RUN = true` in `src/briefing.ts` to log the briefing instead of printing it.
+`testDailyArt()` prints the golden art spec (no API call) to verify the hardware
+path; `testPrinter()` does the same for the old calendar layout. Set
+`DRY_RUN = true` in `src/art.ts` to log the art spec instead of printing.
 
 ## Layout
 
 ```
 src/
   appsscript.json   manifest (V8, America/Los_Angeles, Calendar adv. service)
-  escpos.ts         CMD command table + stringToBytes (shared)
-  calendar.ts       calendar → receipt, the sendToPi transport, testPrinter
-  briefing.ts       AI morning briefing → receipt
+  escpos.ts         CMD command table, column constants, stringToBytes, encodeCP437
+  art.ts            daily Fable art → receipt (schema, renderer, Anthropic client)
+  calendar.ts       calendar → receipt (dormant), the sendToPi transport, alerts
+  briefing.ts       AI morning briefing → receipt (dormant), weather fetcher
   main.ts           entry points re-exported for the build footer
 build.js            esbuild bundle → dist/main.gs
 ```

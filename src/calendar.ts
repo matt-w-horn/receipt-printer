@@ -294,7 +294,7 @@ export function sendToPi(byteArray: number[]): boolean {
   );
 }
 
-function callWithRetry(func: () => boolean): boolean | undefined {
+export function callWithRetry(func: () => boolean): boolean | undefined {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       if (func() === true) return true;
@@ -305,7 +305,7 @@ function callWithRetry(func: () => boolean): boolean | undefined {
   }
 }
 
-function sendAlertEmail(subject: string, body: string): void {
+export function sendAlertEmail(subject: string, body: string): void {
   const scriptProperties = PropertiesService.getScriptProperties();
   const alertTo = scriptProperties.getProperty('EMAIL_ALERTS_TO');
   if (!alertTo) {

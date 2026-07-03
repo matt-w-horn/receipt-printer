@@ -17,6 +17,9 @@
 //   node test-print.mjs text "Hi there"     # print arbitrary text
 //   node test-print.mjs calendar            # render a sample calendar-event receipt
 //   node test-print.mjs briefing            # render a sample AI-briefing receipt
+//   node test-print.mjs ruler               # column/gapless calibration page
+//   node test-print.mjs art                 # render the golden art spec (no API)
+//   node test-print.mjs art:live            # LIVE Fable art (needs ANTHROPIC_KEY)
 //   ... add --dry to any command to print the hex payload instead of sending.
 //
 // Requires Node 18+ (global fetch). Edit the MOCKS below to iterate on content.
@@ -100,12 +103,152 @@ function loadBuilders() {
   return ctx.__receipt; // { generateReceiptPayload, buildDeepReceipt, ... }
 }
 
-// Self-contained ESC/POS for the hello/text modes (independent of src).
+// Self-contained ESC/POS for the hello/text/ruler modes (independent of src).
 const ESC = 0x1b;
 const GS = 0x1d;
 const strBytes = (s) => [...s].map((c) => c.charCodeAt(0) & 0xff);
 const hello = () => [ESC, 0x40, ESC, 0x74, 0x00, ...strBytes('SYSTEM ONLINE'), 0x0a, 0x0a, 0x0a, GS, 0x56, 0x42, 0x00]; // prettier-ignore
 const asText = (t) => [ESC, 0x40, ESC, 0x74, 0x00, ...strBytes(t), 0x0a, 0x0a, 0x0a, GS, 0x56, 0x42, 0x00]; // prettier-ignore
+
+// Calibration page: (a) numbered rulers reveal the real column counts (where a
+// 48/64-char line wraps); (b) stacked █ rows under two candidate line-spacing
+// values reveal the gapless value (pick the block with NO white seams and no
+// overlap); (c) an inverted band sanity-checks GS B.
+function ruler() {
+  const b = [ESC, 0x40, ESC, 0x74, 0x00, ESC, 0x61, 0x00]; // init, CP437, left
+  const seq = (n) => {
+    let s = '';
+    for (let i = 1; i <= n; i++) s += String(i % 10);
+    return s;
+  };
+  const solid = (n) => Array(n).fill(0xdb); // █ in CP437
+  b.push(...strBytes('FONT A ruler (48 cols):\n'), ...strBytes(seq(48)), 0x0a, 0x0a);
+  b.push(ESC, 0x4d, 0x01); // Font B
+  b.push(...strBytes('FONT B ruler (64 cols):\n'), ...strBytes(seq(64)), 0x0a, 0x0a);
+  b.push(ESC, 0x4d, 0x00); // Font A
+  b.push(...strBytes('GAPLESS n=24 (no seams = correct):\n'));
+  b.push(ESC, 0x33, 24);
+  for (let i = 0; i < 3; i++) b.push(...solid(20), 0x0a);
+  b.push(ESC, 0x32);
+  b.push(...strBytes('GAPLESS n=43 (if 24 showed seams):\n'));
+  b.push(ESC, 0x33, 43);
+  for (let i = 0; i < 3; i++) b.push(...solid(20), 0x0a);
+  b.push(ESC, 0x32, 0x0a);
+  b.push(GS, 0x42, 0x01, ...strBytes('  INVERT BAND  '), GS, 0x42, 0x00, 0x0a);
+  b.push(0x0a, 0x0a, 0x0a, GS, 0x56, 0x42, 0x00);
+  return b;
+}
+
+// --- Anthropic live call (art:live) -------------------------------------------
+// Mirrors src/art.ts generateDailyArt(): same request body (built by the
+// bundle's buildArtRequestBody), same pause_turn / tool-version handling.
+async function fableArtSpec(receipt) {
+  const key = process.env.ANTHROPIC_KEY;
+  const oauth = process.env.ANTHROPIC_ACCESS_TOKEN; // e.g. ant auth print-credentials --access-token
+  if (!key && !oauth) {
+    console.error(
+      'art:live needs ANTHROPIC_KEY in .env (or ANTHROPIC_ACCESS_TOKEN exported).',
+    );
+    process.exit(1);
+  }
+
+  const weather = await nodeWeather();
+  const ctx = receipt.buildArtContext(
+    new Date(),
+    weather,
+    process.env.LAT ?? null,
+    process.env.LON ?? null,
+  );
+  console.log(`— context —\n${ctx}\n`);
+
+  const toolTypes = ['web_search_20260209', 'web_search_20250305'];
+  let toolIdx = 0;
+  let messages = [{ role: 'user', content: ctx }];
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const body = receipt.buildArtRequestBody(messages, toolTypes[toolIdx]);
+    const headers = {
+      'content-type': 'application/json',
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta':
+        'server-side-fallback-2026-06-01' + (oauth && !key ? ',oauth-2025-04-20' : ''),
+    };
+    if (key) headers['x-api-key'] = key;
+    else headers['authorization'] = `Bearer ${oauth}`;
+
+    console.log(`→ calling ${body.model} (attempt ${attempt + 1})...`);
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      if (res.status === 400 && toolIdx === 0 && text.includes(toolTypes[0])) {
+        console.log('↩ retrying with basic web_search variant');
+        toolIdx = 1;
+        continue;
+      }
+      throw new Error(`Anthropic ${res.status}: ${text.slice(0, 600)}`);
+    }
+    const json = JSON.parse(text);
+    if (json.stop_reason === 'pause_turn') {
+      console.log('⏸ pause_turn — resuming server tool loop');
+      messages = [...messages, { role: 'assistant', content: json.content }];
+      continue;
+    }
+    if (json.usage) {
+      console.log(
+        `tokens: in=${json.usage.input_tokens} out=${json.usage.output_tokens}`,
+      );
+    }
+    return receipt.parseArtResponse(json);
+  }
+  throw new Error('Anthropic call did not complete after 5 attempts');
+}
+
+// Compact Node-side mirror of getDeepWeather (optional: GEMINI_KEY/LAT/LON in .env).
+async function nodeWeather() {
+  const { GEMINI_KEY, LAT, LON } = process.env;
+  if (!GEMINI_KEY || !LAT || !LON) return null;
+  try {
+    const base = 'https://weather.googleapis.com/v1';
+    const loc = `location.latitude=${LAT}&location.longitude=${LON}&unitsSystem=IMPERIAL`;
+    const cur = await (
+      await fetch(`${base}/currentConditions:lookup?key=${GEMINI_KEY}&${loc}`)
+    ).json();
+    const fc = await (
+      await fetch(`${base}/forecast/hours:lookup?key=${GEMINI_KEY}&${loc}&hours=24`)
+    ).json();
+    let high = -100,
+      low = 200,
+      rain = 0;
+    for (const h of fc.forecastHours ?? []) {
+      const t = h.temperature.degrees;
+      const pr = h.precipitation?.probability?.percent || 0;
+      if (t > high) high = t;
+      if (t < low) low = t;
+      if (pr > rain) rain = pr;
+    }
+    if (high === -100) high = low = cur.temperature.degrees;
+    return {
+      current: Math.round(cur.temperature.degrees),
+      feels_like: Math.round(cur.feelsLikeTemperature.degrees),
+      high: Math.round(high),
+      low: Math.round(low),
+      humidity: cur.relativeHumidity,
+      wind: Math.round(cur.wind.speed.value),
+      uv: cur.uvIndex,
+      rain_chance: rain,
+      code: cur.weatherCondition.description.text,
+      forecast: '',
+      currentConditions: '',
+    };
+  } catch (e) {
+    console.log(`(weather unavailable: ${e.message})`);
+    return null;
+  }
+}
 
 const toHex = (bytes) =>
   bytes.map((b) => (b & 0xff).toString(16).padStart(2, '0').toUpperCase()).join(' ');
@@ -179,9 +322,29 @@ async function main() {
       bytes = buildDeepReceipt(m.ai, m.weather);
       break;
     }
+    case 'ruler':
+      bytes = ruler();
+      break;
+    case 'art': {
+      const receipt = loadBuilders();
+      if (!receipt.renderDailyArtReceipt || !receipt.GOLDEN_ART_SPEC)
+        throw new Error('art builders not found — run `npm run build` first');
+      bytes = receipt.renderDailyArtReceipt(receipt.GOLDEN_ART_SPEC, new Date());
+      break;
+    }
+    case 'art:live': {
+      const receipt = loadBuilders();
+      if (!receipt.renderDailyArtReceipt || !receipt.buildArtRequestBody)
+        throw new Error('art builders not found — run `npm run build` first');
+      const spec = await fableArtSpec(receipt);
+      console.log(`\n🎨 "${spec.title}" — ${spec.ops.length} ops`);
+      console.log(JSON.stringify(spec, null, 2));
+      bytes = receipt.renderDailyArtReceipt(spec, new Date());
+      break;
+    }
     default:
       console.error(
-        `Unknown mode "${mode}". Use: hello | text "..." | calendar | briefing  [--dry]`,
+        `Unknown mode "${mode}". Use: hello | text "..." | calendar | briefing | ruler | art | art:live  [--dry]`,
       );
       process.exit(1);
   }

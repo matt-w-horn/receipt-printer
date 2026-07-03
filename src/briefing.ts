@@ -22,7 +22,7 @@ interface AiResult {
   sources: Source[];
 }
 
-interface WeatherData {
+export interface WeatherData {
   current: number;
   feels_like: number;
   high: number;
@@ -295,7 +295,11 @@ function fetchNewsStream(apiKey: string): { text: string; sources: Source[] } {
   return { text: contextString, sources: sourceLinks };
 }
 
-function getDeepWeather(lat: string, lon: string | null, apiKey: string): WeatherData {
+export function getDeepWeather(
+  lat: string,
+  lon: string | null,
+  apiKey: string,
+): WeatherData {
   const currentUrl = `https://weather.googleapis.com/v1/currentConditions:lookup?key=${apiKey}&location.latitude=${lat}&location.longitude=${lon}&unitsSystem=IMPERIAL`;
   const currentRes = UrlFetchApp.fetch(currentUrl, { muteHttpExceptions: false });
   const currentData = JSON.parse(currentRes.getContentText());

@@ -8,3 +8,13 @@
 
 export { checkAndPrintRobust, testPrinter, generateReceiptPayload } from './calendar';
 export { printAIMorningBriefing, buildDeepReceipt } from './briefing';
+export {
+  printDailyArt,
+  testDailyArt,
+  renderArtSpec,
+  renderDailyArtReceipt,
+  buildArtContext,
+  buildArtRequestBody,
+  parseArtResponse,
+  GOLDEN_ART_SPEC,
+} from './art';

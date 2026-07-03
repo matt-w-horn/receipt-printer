@@ -6,13 +6,18 @@ Guidance for Claude Code working in this repository.
 
 **receipt-printer** turns a thermal receipt printer into a personal output
 device, driven by a standalone Google Apps Script (TypeScript, V8 runtime).
-Anything Apps Script can reach can become a printed receipt; two independent
-time-triggered jobs ship today and share one printing library (more are planned):
+Anything Apps Script can reach can become a printed receipt. One job is active;
+two older ones are dormant (code kept, triggers removed):
 
-- `checkAndPrintRobust()` in `src/calendar.ts` — scans a Google Calendar and
-  prints each new event as a receipt.
-- `printAIMorningBriefing()` in `src/briefing.ts` — builds a weather + Gemini
-  briefing and prints it.
+- `printDailyArt()` in `src/art.ts` — **active.** Asks Claude Fable 5
+  (Anthropic API) to design an original piece of CP437 character art themed to
+  the day (weather, season, zeitgeist via web search), renders the returned
+  JSON art spec to ESC/POS, and prints it.
+- `checkAndPrintRobust()` in `src/calendar.ts` — **dormant.** Scans a Google
+  Calendar and prints each new event as a receipt. Still owns the shared
+  `sendToPi` transport and `sendAlertEmail`.
+- `printAIMorningBriefing()` in `src/briefing.ts` — **dormant.** Weather +
+  Gemini briefing. Still owns `getDeepWeather`, which the art job reuses.
 
 Both assemble [ESC/POS](https://en.wikipedia.org/wiki/ESC/POS) byte arrays and
 POST them to a Raspberry Pi print bridge over an ngrok tunnel (`sendToPi`). That
@@ -48,17 +53,21 @@ global name. esbuild bundles the whole `src/` import graph into one IIFE
 top-level globals so the runtime and editor can find them.
 
 ```
-src/escpos.ts     CMD command table + stringToBytes (shared)
-src/calendar.ts   checkAndPrintRobust, generateReceiptPayload, sendToPi, testPrinter
-src/briefing.ts   printAIMorningBriefing, buildDeepReceipt, getDeepWeather, ...
+src/escpos.ts     CMD command table, COLS_A/COLS_B, stringToBytes, encodeCP437
+src/art.ts        printDailyArt, testDailyArt, art-spec schema + renderer,
+                  Anthropic (Fable 5) client — pure functions exported for the harness
+src/calendar.ts   checkAndPrintRobust (dormant), generateReceiptPayload, sendToPi,
+                  sendAlertEmail, callWithRetry, testPrinter
+src/briefing.ts   printAIMorningBriefing (dormant), buildDeepReceipt, getDeepWeather
 src/main.ts       re-exports the entry points (+ builders, for the harness)
 build.js          esbuild bundle -> dist/main.gs; ENTRY_POINTS -> global footer
 ```
 
-- **Entry points** = `checkAndPrintRobust`, `printAIMorningBriefing`,
-  `testPrinter`. They must be exported from `src/main.ts` **and** listed in
-  `ENTRY_POINTS` in `build.js` (the footer wraps each as a bare global). Existing
-  time triggers reference these names, so don't rename them.
+- **Entry points** = `printDailyArt`, `testDailyArt`, `checkAndPrintRobust`,
+  `printAIMorningBriefing`, `testPrinter`. They must be exported from
+  `src/main.ts` **and** listed in `ENTRY_POINTS` in `build.js` (the footer wraps
+  each as a bare global). Existing time triggers reference these names, so don't
+  rename them.
 - **The old shared-global collision is resolved.** These were two plain `.gs`
   files in one global scope; both defined `wrapText`/`stringToBytes`, and the
   last-loaded won. In the module version each file keeps its own `wrapText`
@@ -75,10 +84,11 @@ build.js          esbuild bundle -> dist/main.gs; ENTRY_POINTS -> global footer
 ## Configuration & secrets
 
 All real config/secrets live in **Script Properties**, never in the repo:
-`PI_URL`, `NGROK_USER`, `NGROK_PASS`, `GEMINI_KEY` (used for both Gemini and the
-Google Weather API), `NEWS_KEY`, `LAT`, `LON`, `CALENDAR_ID` (which calendar to
-print), and `EMAIL_ALERTS_TO` (where failure alerts go). Never hardcode these or
-log them. `PRINT_MEMORY` and `LAST_ALERT_TIME` are script-managed state keys.
+`PI_URL`, `NGROK_USER`, `NGROK_PASS`, `ANTHROPIC_KEY` (daily art — Fable 5),
+`GEMINI_KEY` (used for the Google Weather API and Gemini), `NEWS_KEY`, `LAT`,
+`LON`, `CALENDAR_ID` (which calendar to print), and `EMAIL_ALERTS_TO` (where
+failure alerts go). Never hardcode these or log them. `LAST_ART_DATE`,
+`PRINT_MEMORY`, and `LAST_ALERT_TIME` are script-managed state keys.
 
 `.clasp.json` **is committed** here (it holds only the scriptId + push config, no
 credentials) so `git clone && npm run push` works. `.clasprc.json` (the OAuth
@@ -89,10 +99,13 @@ gitleaks runs in CI and via an optional pre-commit hook as a backstop.
 
 `test-print.mjs` (run via `npm run test:print -- <mode>` or `node test-print.mjs
 <mode>`) POSTs ESC/POS straight to the Pi — the same endpoint Apps Script uses —
-so you can iterate without deploying. `calendar`/`briefing` load the real builders
-from the built `dist/main.gs`, so **run `npm run build` first**; the preview then
-matches production exactly. Credentials come from a gitignored `.env` (copy
-`.env.example`). Add `--dry` to preview the hex payload without printing.
+so you can iterate without deploying. `art`/`art:live`/`calendar`/`briefing` load
+the real builders from the built `dist/main.gs`, so **run `npm run build` first**;
+the preview then matches production exactly. `art` renders the golden spec with
+no API call; `art:live` runs the full Fable pipeline (needs `ANTHROPIC_KEY` in
+`.env`); `ruler` prints the column/gapless calibration page. Credentials come
+from a gitignored `.env` (copy `.env.example`). Add `--dry` to preview the hex
+payload without printing.
 
 ## Conventions & gotchas
 
@@ -109,9 +122,26 @@ matches production exactly. Credentials come from a gitignored `.env` (copy
   window). The briefing path logs and returns on missing config.
 - **De-dup is stateful.** `PRINT_MEMORY.printedEventIds` (capped at 100) keeps an
   event from reprinting; the key is `eventId + "_" + startTime`.
-- **Gemini model** is `gemini-3-pro-preview` over the REST API via `UrlFetchApp`
-  (Apps Script has no `fetch`), with `googleSearch` grounding and
-  `thinkingLevel: high`. The news fetch (`fetchNewsStream`) is currently commented
-  out of the briefing.
+- **Daily art model** is `claude-fable-5` over the Anthropic Messages API via
+  `UrlFetchApp` (raw REST, no SDK). Fable-specific rules: never send a
+  `thinking` param or `temperature`/`top_p`/`top_k` (400); depth is controlled
+  with `output_config.effort`; the art spec comes back via
+  `output_config.format` (json_schema); web search is a server tool
+  (`web_search_20260209`, basic `20250305` fallback) and can return
+  `stop_reason: "pause_turn"` — the client loop echoes the assistant content
+  back to resume. A refusal fallback to `claude-opus-4-8` is enabled via the
+  `server-side-fallback-2026-06-01` beta header.
+- **`encodeCP437` for all new printed text.** It maps Unicode block/box/symbol
+  characters to CP437 bytes and prints `?` for anything unmapped.
+  `stringToBytes` is frozen for the dormant calendar/briefing payloads — don't
+  switch them over.
+- **`COLS_A`/`COLS_B` in `src/escpos.ts` are the single column constants** (42/56
+  for this printer's 42-column mode). The Fable prompt interpolates them, so the
+  model and renderer always agree. Recalibrate with `node test-print.mjs ruler`
+  if the printer is reconfigured — the same page verifies the gapless
+  line-spacing value (`ROW_DOTS_A = 24`).
+- **Gemini model** (dormant briefing) is `gemini-3-pro-preview` over the REST API
+  via `UrlFetchApp`, with `googleSearch` grounding and `thinkingLevel: high`. The
+  news fetch (`fetchNewsStream`) is currently commented out of the briefing.
 - Keep it green: `npm run build` (tsc + bundle) and `npm run format` before
   committing. CI runs `prettier --check`.
