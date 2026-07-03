@@ -4,9 +4,10 @@ Guidance for Claude Code working in this repository.
 
 ## What this is
 
-**receipt-printer** is a standalone Google Apps Script (plain JavaScript, V8
-runtime) that prints to a thermal receipt printer. Two independent time-triggered
-jobs share one printing library:
+**receipt-printer** turns a thermal receipt printer into a personal output
+device, driven by a standalone Google Apps Script (plain JavaScript, V8 runtime).
+Anything Apps Script can reach can become a printed receipt; two independent
+time-triggered jobs ship today and share one printing library (more are planned):
 
 - `checkAndPrintRobust()` in `Code.js` — scans a Google Calendar and prints each
   new event as a receipt.

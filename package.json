@@ -2,7 +2,7 @@
   "name": "receipt-printer",
   "version": "0.1.0",
   "private": true,
-  "description": "Google Apps Script that prints calendar events and an AI morning briefing to a thermal receipt printer (via a Raspberry Pi behind an ngrok tunnel).",
+  "description": "Turn a thermal receipt printer into a personal output device — driven by Google Apps Script.",
   "type": "module",
   "scripts": {
     "format": "prettier --write .",

@@ -1,7 +1,12 @@
 # receipt-printer
 
-A Google Apps Script that prints to a thermal receipt printer. Two independent
-jobs, each driven by its own time-based trigger:
+Turn a thermal receipt printer into a personal output device — driven by Google
+Apps Script. The script assembles [ESC/POS](https://en.wikipedia.org/wiki/ESC/POS)
+byte payloads and POSTs them to a printer bridge on a Raspberry Pi (reached over
+an ngrok tunnel with HTTP basic auth), so anything Apps Script can reach — Google
+services, any REST API, an LLM — can become a printed receipt.
+
+Two jobs ship today, each on its own time-based trigger; more are planned:
 
 - **Calendar → receipt** (`Code.js`) — `checkAndPrintRobust()` scans a Google
   Calendar for events in a rolling window and prints each new one as a receipt
@@ -10,10 +15,6 @@ jobs, each driven by its own time-based trigger:
   `printAIMorningBriefing()` pulls current weather + a 24h forecast, asks Gemini
   (with Google Search grounding) for a short weather/news/status briefing, and
   prints it with a weather header and source links.
-
-Both render [ESC/POS](https://en.wikipedia.org/wiki/ESC/POS) byte payloads and
-POST them to a printer bridge running on a Raspberry Pi, reached over an ngrok
-tunnel with HTTP basic auth.
 
 ```
 Apps Script trigger
