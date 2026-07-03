@@ -15,7 +15,10 @@ time-triggered jobs ship today and share one printing library (more are planned)
   briefing and prints it.
 
 Both assemble [ESC/POS](https://en.wikipedia.org/wiki/ESC/POS) byte arrays and
-POST them to a Raspberry Pi print bridge over an ngrok tunnel (`sendToPi`).
+POST them to a Raspberry Pi print bridge over an ngrok tunnel (`sendToPi`). That
+receiving end — a Pi Zero W running a Python `http.server` that pipes raw bytes
+to `/dev/usb/lp0`, behind an ngrok static domain + basic auth, managed by systemd
+— is documented in [`docs/pi-print-server-runbook.md`](docs/pi-print-server-runbook.md).
 
 Local `src/` is the source of truth; `clasp` pushes it verbatim. The Apps Script
 web editor is a mirror — edit locally, `npm run push`, don't hand-edit online.

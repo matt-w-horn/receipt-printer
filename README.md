@@ -32,6 +32,20 @@ with an auto-cutter. Its full command set is bundled at
 table: the CP437 code page, `GS !` sizing (48 columns at Font A on 80mm paper),
 `GS V` cut, and `GS B` invert.
 
+## The print server (Pi side)
+
+The receiving end is a **Raspberry Pi Zero W** running a small Python
+`http.server` that writes raw bytes straight to the printer's character device
+(`/dev/usb/lp0`). It's exposed to Apps Script over an **ngrok static domain with
+HTTP basic auth**, kept alive by **systemd** (`printer.service`), and rebooted
+weekly by cron to reset the USB stack.
+
+Setup, file paths, maintenance commands, troubleshooting (the ngrok 502/401
+cases), disaster recovery, and an end-to-end curl test all live in
+**[`docs/pi-print-server-runbook.md`](docs/pi-print-server-runbook.md)**.
+Credentials in that runbook are redacted — the real values live in the password
+manager and in Script Properties.
+
 ## Deploy
 
 Local source is the source of truth; `clasp` pushes it straight to the Apps

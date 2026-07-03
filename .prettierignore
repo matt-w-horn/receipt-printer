@@ -1,2 +1,3 @@
-# Vendor documentation (binary / not ours to format)
-docs/
+# Vendor documentation binary (Epson TRG PDF) — not ours to format.
+# Markdown under docs/ is still formatted and checked.
+docs/*.pdf
