@@ -11,11 +11,12 @@
 export const COLS_A = 48;
 export const COLS_B = 64;
 
-// ESC 3 n values that make consecutive rows tile with zero white seam (used for
-// gapless block art). n is in the printer's vertical motion units, NOT dots —
-// calibrated with the ruler page's ▀-stripe test (the section whose black and
-// white stripes are equal and clean is the correct value; solid black means
-// overlap, extra white means gaps).
+// ESC 3 n values for gapless block art (one glyph height, so rows tile with no
+// white seam). Calibrated empirically with the ruler page's ▀-stripe test:
+// n = 24, 43, and 48 all rendered identical clean stripes, which means this
+// firmware clamps line spacing UP to the print-data height when the set value
+// is smaller — under-height values can never overlap rows, and these
+// glyph-height values are exactly gapless under any motion-unit interpretation.
 export const ROW_DOTS_A = 24; // one Font A row (24 dots tall)
 export const ROW_DOTS_B = 17; // one Font B row (17 dots tall)
 
