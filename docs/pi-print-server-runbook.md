@@ -13,7 +13,7 @@ the top-level [README](../README.md) for the Apps Script side and
 
 > **Secrets are redacted here on purpose.** Placeholders like `<NGROK_USER>` /
 > `<NGROK_PASS>` / `<NGROK_DOMAIN>` stand in for real values, which live in the
-> password manager and in Apps Script **Script Properties** — never in this repo.
+> password manager and in Apps Script **Script Properties**, never in this repo.
 > Don't paste real credentials or hostnames into this file.
 
 ---
@@ -61,14 +61,14 @@ domain is `<NGROK_DOMAIN>`.
 
 ## 3. File Paths & Configuration
 
-### A. Python server — `/home/pi/printer_project/printer_server.py`
+### A. Python server: `/home/pi/printer_project/printer_server.py`
 
 - Listens on port `8080`, sits behind ngrok's basic auth, pipes raw request
   bytes to `/dev/usb/lp0`.
 - **Restart logic:** self-terminates every 3600 seconds (1 hour) to force a
   clean systemd refresh.
 
-### B. Startup script — `/home/pi/printer_project/start_print_system.sh`
+### B. Startup script: `/home/pi/printer_project/start_print_system.sh`
 
 - Cleans up old processes, waits for Wi-Fi, launches Python, then launches ngrok.
 - **Critical command** (credentials redacted):
@@ -80,12 +80,12 @@ domain is `<NGROK_DOMAIN>`.
     127.0.0.1:8080 > /home/pi/printer_project/ngrok.log 2>&1 &
   ```
 
-### C. systemd service — `/etc/systemd/system/printer.service`
+### C. systemd service: `/etc/systemd/system/printer.service`
 
 - Runs the startup script at boot and restarts it on crash.
 - **Key settings:** `Restart=always`, `RestartSec=30`.
 
-### D. Scheduled maintenance — `sudo crontab -e`
+### D. Scheduled maintenance: `sudo crontab -e`
 
 - **Schedule:** every Monday at 04:00.
 - **Command:** `/sbin/shutdown -r now` (clears RAM and resets the USB stack).
@@ -143,7 +143,7 @@ ls -l /dev/usb/lp0
 ### Google Script says "Ngrok Error 401"
 
 - **Meaning:** wrong password.
-- **Fix:** check **Script Properties** in Apps Script — `NGROK_USER` and
+- **Fix:** check **Script Properties** in Apps Script: `NGROK_USER` and
   `NGROK_PASS` must match exactly what's in `start_print_system.sh` on the Pi.
 
 ### Printer is silent, but the script says "Success"
@@ -158,7 +158,7 @@ ls -l /dev/usb/lp0
 
 - **Meaning:** a special character (emoji, smart quote) was sent to a byte
   encoder that couldn't represent it.
-- **Status:** guarded in the current code — all printed text goes through
+- **Status:** guarded in the current code; all printed text goes through
   `encodeCP437` (`src/escpos.ts`), which normalizes smart punctuation, drops
   control characters, and substitutes `?` for anything CP437 can't print. If
   this error recurs, some new code path is bypassing `encodeCP437`.

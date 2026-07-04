@@ -35,22 +35,22 @@ step for any of it. A good first prompt:
 
 The two docs worth knowing before touching anything:
 
-- [`docs/escpos-protocol.md`](docs/escpos-protocol.md) — every byte this
+- [`docs/escpos-protocol.md`](docs/escpos-protocol.md): every byte this
   project sends, with calibration results. Spec new commands here before code
   emits them.
-- [`docs/pi-print-server-runbook.md`](docs/pi-print-server-runbook.md) — the
+- [`docs/pi-print-server-runbook.md`](docs/pi-print-server-runbook.md): the
   receiving end (Pi + ngrok + systemd).
 
 ## Before you open a PR
 
 - `npm run build` passes (typecheck + bundle)
 - `npm run format` (CI runs `prettier --check`)
-- No secrets anywhere — keys live in Script Properties or a gitignored `.env`,
+- No secrets anywhere: keys live in Script Properties or a gitignored `.env`,
   never in code, docs, or history. gitleaks runs in CI; there's an optional
   pre-commit hook in `.pre-commit-config.yaml`.
 - Renderer or prompt changes: include a `--dry` hex diff or a photo of a real
   print. Byte output is the product; prose descriptions of it don't review well.
 
 Bigger ideas (raster graphics, evals, deploy tooling) are mapped out in the
-[roadmap issues](https://github.com/matt-w-horn/morningprint/issues) —
+[roadmap issues](https://github.com/matt-w-horn/morningprint/issues);
 comment there before building so we don't collide.

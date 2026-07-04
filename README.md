@@ -3,7 +3,7 @@
 One original print, every morning.
 
 A thermal receipt printer in my kitchen wakes up each day and prints a piece
-of character art that has never existed before — designed seconds earlier by
+of character art that has never existed before, designed seconds earlier by
 Claude, themed to the day: the weather outside, the season, whatever the news
 feels like. A short verse underneath. One physical copy, 80mm wide, and that
 is the whole broadcast.
@@ -43,8 +43,8 @@ graph LR
 1. **Context.** `printDailyArt()` (`src/art.ts`) builds a small brief: today's
    date, the season, current weather from the Google Weather API, and a rolling
    archive of the last 14 pieces (title + one-line style note each).
-2. **Design.** Claude gets a system prompt describing the medium — a 48-column
-   monospace grid, 1-bit black, CP437 characters only — and is asked for one
+2. **Design.** Claude gets a system prompt describing the medium (a 48-column
+   monospace grid, 1-bit black, CP437 characters only) and is asked for one
    committed idea that differs sharply from everything in the archive. On a day
    that genuinely earns it (a holiday after its eve, an event still unfolding,
    a resonant anniversary) it may instead answer an earlier piece; the pair at
@@ -52,10 +52,10 @@ graph LR
    out the day. Structured output (a JSON schema) forces back a valid art
    spec: an array of styled text ops plus a short verse.
 3. **Render.** A ~50-line renderer turns ops into raw ESC/POS bytes. No
-   drivers, no images — the art is literally text with style commands.
+   drivers, no images: the art is literally text with style commands.
 4. **Print.** The bytes are POSTed to the Pi, which writes them to the
    printer's character device. The receipt prints: a small date stamp, the
-   artwork, the verse. Nothing else — no title, no branding.
+   artwork, the verse. Nothing else: no title, no branding.
 
 ## The medium
 
@@ -67,7 +67,7 @@ in 1981. Everything the model can do, it does with CP437:
 | ------------------- | ----------------------------------------------------------- |
 | Tone / gradients    | `░ ▒ ▓ █` ramps across rows                                 |
 | Sub-character edges | half-blocks `▀ ▄ ▌ ▐ ■` for silhouettes                     |
-| Solid black fields  | inverted (white-on-black) runs — even spaces print solid    |
+| Solid black fields  | inverted (white-on-black) runs; even spaces print solid     |
 | Seamless shapes     | line spacing set to exactly one glyph height, so rows tile  |
 | Giant type          | independent width/height scaling, 1–8× each                 |
 | Fine texture        | the printer's second font: 9×17 glyphs, 64 columns          |
@@ -128,7 +128,7 @@ unlikely event of a refusal. Details in `CLAUDE.md`.
 
 ## Hardware
 
-- **Printer:** Epson TM-T20III — 80mm ESC/POS thermal printer with an
+- **Printer:** Epson TM-T20III, an 80mm ESC/POS thermal printer with an
   auto-cutter. Any ESC/POS printer with a CP437 code page should work after
   recalibrating the column constants (`node test-print.mjs ruler`).
 - **Bridge:** Raspberry Pi Zero W running a ~40-line Python `http.server`
@@ -148,7 +148,7 @@ maintenance, troubleshooting, and disaster recovery live in
 ## Contributing
 
 Clone the repo, `npm install`, and start [Claude Code](https://claude.com/claude-code)
-in the root — it picks up [`CLAUDE.md`](CLAUDE.md) automatically, which carries
+in the root; it picks up [`CLAUDE.md`](CLAUDE.md) automatically, which carries
 the architecture, the deploy ritual, and the byte-level gotchas. You can iterate
 on the renderer with no hardware at all: `node test-print.mjs art --dry` shows
 the exact ESC/POS bytes a change produces. The longer version, including a good
@@ -214,7 +214,7 @@ printing.
 `test-print.mjs` sends ESC/POS straight to the Pi bridge (the same endpoint
 Apps Script hits), so you can iterate without deploying or waiting on a
 trigger. The `art` modes load the real builders from the built `dist/main.gs`,
-so run `npm run build` first — the preview then matches production exactly.
+so run `npm run build` first; the preview then matches production exactly.
 
 ```bash
 cp .env.example .env            # then fill in PI_URL / NGROK_USER / NGROK_PASS
@@ -228,7 +228,7 @@ node test-print.mjs art --dry   # print the hex payload instead of sending
 ```
 
 `.env` is gitignored; credentials never live in the repo. This script is local
-only — it isn't bundled into `dist/` or pushed to Apps Script.
+only; it isn't bundled into `dist/` or pushed to Apps Script.
 
 ## Layout
 

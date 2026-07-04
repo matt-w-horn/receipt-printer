@@ -1,4 +1,4 @@
-# ESC/POS Protocol Spec — Epson TM-T20III
+# ESC/POS Protocol Spec: Epson TM-T20III
 
 The complete wire protocol this project speaks, from HTTP request down to
 printer dots. This replaces the bundled Epson Technical Reference Guide PDF: it
@@ -12,17 +12,17 @@ result is stated explicitly.
 **Layers, top to bottom:**
 
 ```
-HTTP POST (octet-stream, basic auth)      — transport to the Pi bridge
-  └─ ESC/POS byte stream                  — commands + text, one buffer
-      └─ CP437 code page                  — one byte per printed character
-          └─ Epson TM-T20III              — 203 dpi thermal, 80mm roll
+HTTP POST (octet-stream, basic auth)      - transport to the Pi bridge
+  └─ ESC/POS byte stream                  - commands + text, one buffer
+      └─ CP437 code page                  - one byte per printed character
+          └─ Epson TM-T20III              - 203 dpi thermal, 80mm roll
 ```
 
 ---
 
 ## 1. Transport: the Pi print bridge
 
-The printer itself has no network protocol in this system — a Raspberry Pi
+The printer itself has no network protocol in this system; a Raspberry Pi
 bridges HTTP to the USB character device (see
 [`pi-print-server-runbook.md`](pi-print-server-runbook.md)).
 
@@ -31,12 +31,12 @@ bridges HTTP to the USB character device (see
 | Method       | `POST` to `PI_URL` (ngrok static domain)                         |
 | Auth         | HTTP Basic (`NGROK_USER` / `NGROK_PASS`), enforced by ngrok      |
 | Content-Type | `application/octet-stream`                                       |
-| Body         | the raw ESC/POS byte stream, verbatim — no framing, no wrapper   |
+| Body         | the raw ESC/POS byte stream, verbatim; no framing, no wrapper    |
 | `200`        | bytes were written to `/dev/usb/lp0`                             |
 | `401`        | bad basic-auth credentials                                       |
 | `502`        | tunnel up, Python server down (`sudo systemctl restart printer`) |
 
-There is **no acknowledgment from the printer** — a `200` means the Pi wrote
+There is **no acknowledgment from the printer**: a `200` means the Pi wrote
 the bytes to the device, not that paper came out. The printer consumes the
 stream and prints; malformed streams print garbage rather than erroring.
 
@@ -48,7 +48,7 @@ printf "\x1B\x40SYSTEM ONLINE\x0A\x0A\x0A\x1D\x56\x42\x00" \
 ```
 
 **Apps Script quirk:** `sendToPi` (`src/transport.ts`) converts values ≥ 128 to
-signed bytes (`val - 256`) before `Utilities.newBlob` — the Blob API takes
+signed bytes (`val - 256`) before `Utilities.newBlob`; the Blob API takes
 signed 8-bit ints. The bytes on the wire are identical; leave the conversion
 alone.
 
@@ -56,16 +56,16 @@ alone.
 
 ## 2. Printer geometry (this unit)
 
-| Property          | Value                                              |
-| ----------------- | -------------------------------------------------- |
-| Model             | Epson TM-T20III, USB, auto partial cutter          |
-| Resolution        | 203 dpi (≈ 8 dots/mm)                              |
-| Paper             | 80 mm roll; ≈ 72 mm printable ≈ **576 dots** wide  |
-| Font A glyph      | 12 × 24 dots → **48 columns** (`COLS_A`)           |
-| Font B glyph      | 9 × 17 dots → **64 columns** (`COLS_B`)            |
-| Font A row height | 24 dots (`ROW_DOTS_A`)                             |
-| Font B row height | 17 dots (`ROW_DOTS_B`)                             |
-| Color             | 1-bit black. No grayscale — texture is characters. |
+| Property          | Value                                             |
+| ----------------- | ------------------------------------------------- |
+| Model             | Epson TM-T20III, USB, auto partial cutter         |
+| Resolution        | 203 dpi (≈ 8 dots/mm)                             |
+| Paper             | 80 mm roll; ≈ 72 mm printable ≈ **576 dots** wide |
+| Font A glyph      | 12 × 24 dots → **48 columns** (`COLS_A`)          |
+| Font B glyph      | 9 × 17 dots → **64 columns** (`COLS_B`)           |
+| Font A row height | 24 dots (`ROW_DOTS_A`)                            |
+| Font B row height | 17 dots (`ROW_DOTS_B`)                            |
+| Color             | 1-bit black. No grayscale; texture is characters. |
 
 This unit runs in the printer's standard 48-column mode, **confirmed with
 `node test-print.mjs ruler`**: a 48-character Font A line and a 64-character
@@ -81,7 +81,7 @@ recalibrate `COLS_A`/`COLS_B`.)
   print as CP437 characters; `LF` (`0x0A`) prints the buffered line and feeds;
   `ESC` (`0x1B`) and `GS` (`0x1D`) introduce commands.
 - **Bytes `0x00`–`0x1F` are control codes, not glyphs.** CP437's smiley-face
-  range is unreachable — the renderer strips those from incoming text
+  range is unreachable; the renderer strips those from incoming text
   (`renderArtSpec`) so stray control characters can't be interpreted as
   commands.
 - The printer is **line-buffered**: text accumulates until a `LF` (or a feed
@@ -91,7 +91,7 @@ recalibrate `COLS_A`/`COLS_B`.)
   upside-down mode). Send them before any text on that line.
 - Settings are **sticky** until changed or reset (`ESC @`). The art renderer
   therefore emits a full style prelude for every op and restores defaults at
-  the end — byte-predictable output, no state diffing.
+  the end: byte-predictable output, no state diffing.
 
 ---
 
@@ -128,76 +128,76 @@ the `CMD` table in `src/escpos.ts`.
 
 ### Initialization
 
-- **`ESC @` — initialize** (`1B 40`)
+- **`ESC @`: initialize** (`1B 40`)
   Clears the print buffer and resets all modes (font, size, style, alignment,
   line spacing, code page) to power-on defaults. Does not feed or cut. Every
   receipt starts with this so nothing leaks from the previous print.
 
-- **`ESC t n` — select character code table** (`1B 74 n`)
-  `n = 0` selects page 0, **PC437** (USA / Standard Europe) — the code page
+- **`ESC t n`: select character code table** (`1B 74 n`)
+  `n = 0` selects page 0, **PC437** (USA / Standard Europe), the code page
   the whole project assumes (§5). Sent immediately after `INIT` on every
   receipt.
 
 ### Layout
 
-- **`ESC a n` — justification** (`1B 61 n`; `0` left, `1` center, `2` right)
+- **`ESC a n`: justification** (`1B 61 n`; `0` left, `1` center, `2` right)
   Aligns each printed line within the 576-dot printable width. **Only honored
   at the start of a line.** The art renderer defaults to center.
 
-- **`ESC M n` — font select** (`1B 4D n`; `0` Font A, `1` Font B)
-  Font A: 12×24 glyphs, 48 columns — the default. Font B: 9×17 glyphs,
-  64 columns — smaller type and finer texture for art (a Font B checkerboard
+- **`ESC M n`: font select** (`1B 4D n`; `0` Font A, `1` Font B)
+  Font A: 12×24 glyphs, 48 columns, the default. Font B: 9×17 glyphs,
+  64 columns; smaller type and finer texture for art (a Font B checkerboard
   has ~1.8× the spatial frequency of Font A's).
 
-- **`GS ! n` — character size** (`1D 21 n`)
+- **`GS ! n`: character size** (`1D 21 n`)
   Independent width/height magnification. High nibble = width − 1, low nibble
   = height − 1, each 0–7 (so 1–8×): `n = ((w−1) << 4) | (h−1)`.
   `CMD.SIZE(w, h)` computes and clamps this. A width-`w` line fits
   `floor(columns / w)` characters; the art renderer truncates to that budget.
-  Scaling is per-character cell — an 8×8 Font A glyph is 96×192 dots.
+  Scaling is per-character cell: an 8×8 Font A glyph is 96×192 dots.
 
-- **`ESC { n` — upside-down mode** (`1B 7B n`; LSB on/off)
+- **`ESC { n`: upside-down mode** (`1B 7B n`; LSB on/off)
   Rotates each line 180° (line start only). In the table for completeness;
   the current renderer doesn't use it.
 
 ### Style
 
-- **`ESC E n` — emphasized (bold)** (`1B 45 n`; LSB on/off)
+- **`ESC E n`: emphasized (bold)** (`1B 45 n`; LSB on/off)
   Thickens strokes by one dot. Subtle at 1×, strong on scaled-up type.
 
-- **`ESC - n` — underline** (`1B 2D n`; `0` off, `1` 1-dot, `2` 2-dot)
+- **`ESC - n`: underline** (`1B 2D n`; `0` off, `1` 1-dot, `2` 2-dot)
   Underlines characters _and_ spaces of the line. Per Epson's spec, underline
-  is **not applied to white/black-inverted characters** — don't combine
+  is **not applied to white/black-inverted characters**; don't combine
   `underline` with `invert` and expect both.
 
-- **`GS B n` — white/black reverse (invert)** (`1D 42 n`; LSB on/off)
+- **`GS B n`: white/black reverse (invert)** (`1D 42 n`; LSB on/off)
   Prints white glyphs on a black cell background. **Spaces print as solid
-  black cells** — an inverted run of spaces is a solid black band, which is
+  black cells**: an inverted run of spaces is a solid black band, which is
   how the art gets night skies and heavy banners. Trailing spaces matter:
   pad inverted rows to full width or the band stops early.
 
 ### Line spacing & feeding
 
-- **`ESC 3 n` — set line spacing** (`1B 33 n`, `n` = 0–255 vertical motion
+- **`ESC 3 n`: set line spacing** (`1B 33 n`, `n` = 0–255 vertical motion
   units)
   Sets the feed distance per `LF`. The default (`ESC 2`, ≈ 1/6 inch) leaves a
-  white gap between 24-dot Font A rows — correct for text, fatal for block
+  white gap between 24-dot Font A rows: correct for text, fatal for block
   art. See §6 for the gapless calibration result on this unit.
 
-- **`ESC 2` — default line spacing** (`1B 32`)
+- **`ESC 2`: default line spacing** (`1B 32`)
   Restores the default (readable-text) spacing. The renderer emits this after
   every gapless op and at the end of every receipt.
 
 - **`LF`** (`0x0A`)
   Prints the buffered line and advances one line (current line spacing).
 
-- **`ESC d n` — print and feed n lines** (`1B 64 n`)
+- **`ESC d n`: print and feed n lines** (`1B 64 n`)
   Prints the buffer, then feeds `n` lines at the current spacing. Used for
   blank space (`feedAfter`, header/footer breathing room).
 
 ### Cutting
 
-- **`GS V B n` — feed and partial cut** (`1D 56 42 n`)
+- **`GS V B n`: feed and partial cut** (`1D 56 42 n`)
   Function B: feeds the paper to the cutting position plus `n` motion units,
   then performs a partial cut (one point uncut, so the receipt hangs rather
   than falls). `n = 0` cuts right at the cut position. The feed matters: the
@@ -210,17 +210,17 @@ the `CMD` table in `src/escpos.ts`.
 
 `ESC t 0` puts the printer on code page 437. One byte per glyph:
 
-| Byte range    | Meaning                                                                            |
-| ------------- | ---------------------------------------------------------------------------------- |
-| `0x00`–`0x1F` | Control codes — **not printable** (CP437's ☺♥ glyphs are unreachable over ESC/POS) |
-| `0x20`–`0x7E` | Printable ASCII, 1:1                                                               |
-| `0x7F`        | Control (DEL) — stripped                                                           |
-| `0x80`–`0xFF` | CP437 extended set: blocks, box drawing, symbols, accented Latin, Greek            |
+| Byte range    | Meaning                                                                           |
+| ------------- | --------------------------------------------------------------------------------- |
+| `0x00`–`0x1F` | Control codes: **not printable** (CP437's ☺♥ glyphs are unreachable over ESC/POS) |
+| `0x20`–`0x7E` | Printable ASCII, 1:1                                                              |
+| `0x7F`        | Control (DEL), stripped                                                           |
+| `0x80`–`0xFF` | CP437 extended set: blocks, box drawing, symbols, accented Latin, Greek           |
 
 All printed text goes through **`encodeCP437`** (`src/escpos.ts`), which maps
 Unicode to these bytes:
 
-- **Shading & blocks:** `░ ▒ ▓ █ ▄ ▌ ▐ ▀ ■` → `B0 B1 B2 DB DC DD DE DF FE` —
+- **Shading & blocks:** `░ ▒ ▓ █ ▄ ▌ ▐ ▀ ■` → `B0 B1 B2 DB DC DD DE DF FE`,
   the art's entire tonal range.
 - **Box drawing:** full single (`─ │ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼`), double
   (`═ ║ ╔ ╗ ╚ ╝ ╠ ╣ ╦ ╩ ╬`), and mixed single/double connector sets.
@@ -231,7 +231,7 @@ Unicode to these bytes:
 - **Normalizations before mapping:** curly quotes → `'`/`"`, en/em dashes and
   minus → `-`, ellipsis → `...`, NBSP → space.
 - **Everything else:** control characters are dropped; any other unmapped
-  character prints as `?` — visible but harmless, never misinterpreted as a
+  character prints as `?`: visible but harmless, never misinterpreted as a
   command.
 
 The build preserves these mappings end to end: `build.js` bundles with
@@ -247,7 +247,7 @@ The signature trick of the art renderer: with default line spacing, stacked
 makes rows tile into contiguous fields.
 
 Empirical result from this unit's ruler page (`node test-print.mjs ruler`,
-▀-stripe test — `▀` is half-black, so any gap or overlap between rows is
+▀-stripe test; `▀` is half-black, so any gap or overlap between rows is
 immediately visible):
 
 - `ESC 3 n` with **n = 24, 43, and 48 all rendered identical, clean, gapless
@@ -255,9 +255,9 @@ immediately visible):
 - Conclusion: **this firmware clamps line spacing _up_ to the print-data
   height** when the set value is smaller. An under-height value can never
   overlap rows.
-- Therefore the renderer uses `n` = one glyph height — `ROW_DOTS_A = 24` for
+- Therefore the renderer uses `n` = one glyph height (`ROW_DOTS_A = 24` for
   Font A, `ROW_DOTS_B = 17` for Font B, multiplied by the op's height
-  multiplier (capped at 255) — which is exactly gapless under any
+  multiplier, capped at 255), which is exactly gapless under any
   motion-unit interpretation.
 
 The renderer sets `ESC 3` only for ops marked `gapless: true` and resets with
@@ -293,5 +293,5 @@ ESC 3 n | ESC 2    gapless spacing or default
 ESC d n     feedAfter blank lines (if any)
 ```
 
-Every op re-states all seven settings — no reliance on printer state — and the
+Every op re-states all seven settings (no reliance on printer state) and the
 receipt ends by restoring defaults, feeding, and cutting.
