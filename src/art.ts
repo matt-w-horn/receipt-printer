@@ -18,10 +18,9 @@ const DRY_RUN = false; // Set to TRUE to log the spec instead of printing
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-fable-5';
-const FALLBACK_MODEL = 'claude-opus-4-8'; // refusal fallback (unlikely for art)
-const EFFORT = 'high'; // drop to 'medium' if UrlFetchApp starts timing out
-const MAX_TOKENS = 8000;
-const MAX_WEB_SEARCHES = 4;
+const EFFORT = 'xhigh'; // drop to 'medium' if UrlFetchApp starts timing out
+const MAX_TOKENS = 64000;
+const MAX_WEB_SEARCHES = 8;
 // Newest web-search tool first; if the API rejects it for this model we retry
 // once with the basic variant.
 const WEB_SEARCH_TYPES = ['web_search_20260209', 'web_search_20250305'];
@@ -283,10 +282,6 @@ export function buildArtRequestBody(
       effort: EFFORT,
       format: { type: 'json_schema', schema: ART_SCHEMA },
     },
-    // Server-side refusal fallback (beta header set by the caller). A safety
-    // decline — vanishingly unlikely for art — is re-served by Opus instead of
-    // failing the day's print.
-    fallbacks: [{ model: FALLBACK_MODEL }],
   };
 }
 
@@ -516,7 +511,6 @@ function generateDailyArt(apiKey: string, userContext: string): ArtSpec {
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'server-side-fallback-2026-06-01',
       },
       payload: JSON.stringify(body),
       muteHttpExceptions: true,
